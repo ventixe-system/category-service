@@ -7,15 +7,22 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<CategoryDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-
-
 builder.Services.AddOpenApi();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder => builder.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader());
+});
 
 var app = builder.Build();
 app.MapOpenApi();
 
 
 app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 
 
 app.MapGet("/api/categories", async (CategoryDbContext db) =>
@@ -29,6 +36,14 @@ app.MapGet("/api/categories", async (CategoryDbContext db) =>
         .ToListAsync();
 
     return Results.Ok(categories);
+});
+
+app.MapGet("/api/categories/{id}", async (int id, CategoryDbContext db) =>
+{
+    var category = await db.Categories.FindAsync(id);
+    return category is not null
+        ? Results.Ok(new CategoryDto { Id = category.Id, Name = category.Name })
+        : Results.NotFound();
 });
 
 app.MapPost("/api/categories", async (CategoryDto dto, CategoryDbContext db) =>
